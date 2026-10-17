@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Batalha v14</title>
+<link rel="stylesheet" href="css/visual.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+<div class="vignette"></div>
+<div class="flash" id="flash" style="position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:25;"></div>
+
+<div class="hud">
+  <div class="side blue">
+    <div class="name">◄ <span id="blueName">Azul</span> <span class="tag" id="blueClass">—</span></div>
+    <div class="bar"><div class="fill" id="hpBlue"></div></div>
+    <div class="mana-bar" id="manaBarBlue"><div class="mana-fill" id="manaBlue"></div></div>
+    <div class="stamina-bar"><div class="stamina-fill" id="staminaBlue"></div></div>
+    <div class="eter-bar" id="eterBarBlue" hidden><div class="eter-fill" id="eterBlue"></div></div>
+    <div class="combat-status" id="blueStatus"></div>
+    <div class="cooldown-row" id="blueCooldowns"></div>
+  </div>
+  <div class="side red">
+    <div class="name">VERMELHO ► <span id="redName">Vermelho</span> <span class="tag" id="redClass">—</span></div>
+    <div class="bar"><div class="fill" id="hpRed"></div></div>
+    <div class="mana-bar" id="manaBarRed"><div class="mana-fill" id="manaRed"></div></div>
+    <div class="stamina-bar"><div class="stamina-fill" id="staminaRed"></div></div>
+    <div class="eter-bar" id="eterBarRed" hidden><div class="eter-fill" id="eterRed"></div></div>
+    <div class="combat-status" id="redStatus"></div>
+    <div class="cooldown-row" id="redCooldowns"></div>
+  </div>
+</div>
+
+<div class="combo" id="combo">x2 COMBO</div>
+<div class="cinematic-overlay" id="cineOverlay"><span>GOLPE CINEMÁTICO</span></div>
+<div id="spectatorScore" class="spectator-score" hidden></div>
+<div id="debugStats" class="debug-stats" hidden></div>
+
+<div class="controls-hint">
+  <div class="row"><span class="key">WASD</span> mover · <span class="key">MOUSE</span> mirar</div>
+  <div class="row"><span class="key">LMB</span> ataque · <span class="key">RMB</span> secundário</div>
+  <div class="row"><span class="key">Q</span> barreira/escudo · <span class="key">SHIFT</span> carregar · <span class="key">F</span> parry</div>
+  <div class="row"><span class="key">E</span> dash · <span class="key">R</span> meditar</div>
+  <div class="row"><span class="key">Z/X/C/V</span> habilidades · <span class="key">T/G/B</span> despertar · <span class="key">Y/H</span> ultimate</div>
+</div>
+
+<button class="config-toggle" id="cfgToggle">⚙ CONFIG</button>
+<div class="config-panel" id="cfgPanel">
+  <div class="panel-heading">
+    <div>
+      <h2>Configuração de batalha</h2>
+      <p>Presets e ajustes persistem neste navegador.</p>
+    </div>
+    <div class="config-file-actions">
+      <button id="configExport" type="button">Exportar JSON</button>
+      <button id="configImportButton" type="button">Importar JSON</button>
+      <input id="configImportFile" type="file" accept="application/json,.json" hidden>
+      <button id="configResetAll" class="reset-all">Resetar tudo</button>
+    </div>
+  </div>
+  <div class="preset-row" aria-label="Presets">
+    <button type="button" data-preset="ia_vs_ia">IA vs IA</button>
+    <button type="button" data-preset="duelo">Duelo normal</button>
+    <button type="button" data-preset="sandbox">Sandbox</button>
+    <button type="button" data-preset="espectador">Espectador</button>
+  </div>
+
+  <details class="config-section" open data-default-open="true">
+    <summary>1 · Personagens</summary>
+    <div class="fighter-columns">
+      <section class="fighter-config blue-config">
+        <h4>Azul</h4>
+        <label>Classe
+          <select data-config="personagens.azul.classe">
+            <option value="espadachim">Espadachim</option><option value="arqueiro">Arqueiro</option><option value="mage">Mago</option><option value="invocador">Invocador</option>
+          </select>
+        </label>
+        <label>Nome <input type="text" maxlength="24" data-config="personagens.azul.nome"></label>
+        <label>Variante
+          <select data-config="personagens.azul.variant">
+            <option value="pequeno">Pequeno</option><option value="padrao">Padrão</option>
+            <option value="grande">Grande</option><option value="colossal">Colossal</option>
+          </select>
+        </label>
+        <label>Cor personalizada <input type="color" data-config="personagens.azul.cor"></label>
+        <label>Nível de IA
+          <select data-config="personagens.azul.nivel">
+            <option value="1">1 · Spectator</option><option value="2">2 · Spectator</option>
+            <option value="3">3 · Casual</option><option value="4">4 · Casual</option>
+            <option value="5">5 · Experiente</option><option value="6">6 · Experiente</option><option value="7">7 · Hardcore</option>
+          </select>
+        </label>
+        <label class="toggle-line"><input type="checkbox" data-config="personagens.azul.jogador"> Jogador (desmarcado = IA)</label>
+        <label class="range-line">Reflexo <output id="blueReflexOutput">65%</output>
+          <input type="range" min="0" max="100" step="1" value="65" data-config="personagens.azul.reflexo" data-output="blueReflexOutput" data-suffix="%">
+        </label>
+      </section>
+      <section class="fighter-config red-config">
+        <h4>Vermelho</h4>
+        <label>Classe
+          <select data-config="personagens.vermelho.classe">
+            <option value="espadachim">Espadachim</option><option value="arqueiro">Arqueiro</option><option value="mage">Mago</option><option value="invocador">Invocador</option>
+          </select>
+        </label>
+        <label>Nome <input type="text" maxlength="24" data-config="personagens.vermelho.nome"></label>
+        <label>Variante
+          <select data-config="personagens.vermelho.variant">
+            <option value="pequeno">Pequeno</option><option value="padrao">Padrão</option>
+            <option value="grande">Grande</option><option value="colossal">Colossal</option>
+          </select>
+        </label>
+        <label>Cor personalizada <input type="color" data-config="personagens.vermelho.cor"></label>
+        <label>Nível de IA
+          <select data-config="personagens.vermelho.nivel">
+            <option value="1">1 · Spectator</option><option value="2">2 · Spectator</option>
+            <option value="3">3 · Casual</option><option value="4">4 · Casual</option>
+            <option value="5">5 · Experiente</option><option value="6">6 · Experiente</option><option value="7">7 · Hardcore</option>
+          </select>
+        </label>
+        <label class="toggle-line"><input type="checkbox" data-config="personagens.vermelho.jogador"> Jogador (desmarcado = IA)</label>
+        <label class="range-line">Reflexo <output id="redReflexOutput">65%</output>
+          <input type="range" min="0" max="100" step="1" value="65" data-config="personagens.vermelho.reflexo" data-output="redReflexOutput" data-suffix="%">
+        </label>
+      </section>
+    </div>
+  </details>
+
+  <details class="config-section">
+    <summary>2 · Habilidades</summary>
+    <p class="section-help">Escolha se cada habilidade fica liberada, bloqueada ou oculta para cada lado.</p>
+    <div class="ability-columns">
+      <section><h4>Azul</h4><div id="blueAbilities" class="ability-grid"></div></section>
+      <section><h4>Vermelho</h4><div id="redAbilities" class="ability-grid"></div></section>
+    </div>
+  </details>
+
+  <details class="config-section">
+    <summary>3 · Efeitos</summary>
+    <div class="settings-grid">
+      <label class="range-line">Screen shake <output id="shakeOutput">100%</output>
+        <input type="range" min="0" max="100" step="1" value="100" data-config="efeitos.shake" data-output="shakeOutput" data-suffix="%">
+      </label>
+      <label class="range-line">Densidade de partículas <output id="particleOutput">100%</output>
+        <input type="range" min="0" max="100" step="1" value="100" data-config="efeitos.particulas" data-output="particleOutput" data-suffix="%">
+      </label>
+      <label class="toggle-line"><input type="checkbox" checked data-config="efeitos.flash"> Flash branco</label>
+      <label class="toggle-line"><input type="checkbox" data-config="efeitos.slowMo"> Slow-mo cinematográfico</label>
+      <label class="toggle-line"><input type="checkbox" checked data-config="efeitos.focus"> Focus cinematográfico</label>
+      <label class="toggle-line"><input type="checkbox" checked data-config="efeitos.trail"> Rastro / afterimages</label>
+    </div>
+  </details>
+
+  <details class="config-section">
+    <summary>4 · Câmera</summary>
+    <div class="settings-grid">
+      <label class="range-line">Zoom geral <output id="zoomOutput">85%</output>
+        <input type="range" min="40" max="150" step="1" value="85" data-config="camera.zoom" data-output="zoomOutput" data-suffix="%">
+      </label>
+      <label class="range-line">Velocidade de tracking <output id="trackingOutput">4×</output>
+        <input type="range" min="1" max="5" step="0.1" value="4" data-config="camera.tracking" data-output="trackingOutput" data-suffix="×">
+      </label>
+      <label class="toggle-line"><input type="checkbox" checked data-config="camera.focus"> Focus automático no caster</label>
+    </div>
+  </details>
+
+  <details class="config-section">
+    <summary>5 · Mundo</summary>
+    <div class="settings-grid">
+      <label>Cenário
+        <select data-config="mundo.cenario">
+          <option value="espaco">Espaço</option><option value="ceu">Céu</option><option value="grid">Grid</option><option value="vazio">Vazio</option>
+        </select>
+      </label>
+      <label class="range-line">Densidade de estrelas <output id="starsOutput">100%</output>
+        <input type="range" min="0" max="200" step="1" value="100" data-config="mundo.estrelas" data-output="starsOutput" data-suffix="%">
+      </label>
+      <label class="toggle-line"><input type="checkbox" checked data-config="mundo.borda"> Mostrar borda do mundo</label>
+      <label class="range-line">Matiz do fundo <output id="hueOutput">220°</output>
+        <input type="range" min="0" max="360" step="1" value="220" data-config="mundo.cor" data-output="hueOutput" data-suffix="°">
+      </label>
+    </div>
+  </details>
+</div>
+
+<div id="debugPanel" class="config-panel debug-panel">
+  <details class="config-section" open>
+    <summary>6 · Debug de desenvolvimento</summary>
+    <p class="section-help">Sessão atual apenas; estas opções não são salvas.</p>
+    <label class="debug-option"><input id="debugDisableEnemy" type="checkbox"> Desligar IA inimiga</label>
+    <label class="debug-option"><input id="debugInfiniteUser" type="checkbox"> Recursos infinitos do jogador</label>
+    <label class="debug-option"><input id="debugInfiniteAI" type="checkbox"> Recursos infinitos da IA</label>
+    <label class="debug-option"><input id="debugInvulnerableUser" type="checkbox"> Invencibilidade do jogador</label>
+    <label class="debug-option"><input id="debugInvulnerableAI" type="checkbox"> Invencibilidade da IA</label>
+    <label class="debug-option"><input id="debugHitboxes" type="checkbox"> Hitboxes e percepção</label>
+    <label class="debug-option"><input id="debugStatsToggle" type="checkbox"> Estatísticas na tela</label>
+    <label class="debug-option"><input id="debugPause" type="checkbox"> Modo passo (P pausa, N avança)</label>
+    <button id="debugStep">Avançar um frame</button>
+    <button id="debugResetPositions">Reset rápido de posição (Home)</button>
+    <button id="debugForceX">Forçar especial X (F9)</button>
+  </details>
+</div>
+
+<script src="core/dados.js"></script>
+<script src="core/utilidades.js"></script>
+<script src="core/eventos.js"></script>
+<script src="core/registro.js"></script>
+<script src="efeitos/vortice.js"></script>
+<script src="efeitos/arco.js"></script>
+<script src="efeitos/feixe.js"></script>
+<script src="efeitos/corte.js"></script>
+<script src="efeitos/particula.js"></script>
+<script src="efeitos/explosao.js"></script>
+<script src="efeitos/orbitacao.js"></script>
+<script src="efeitos/captacao-particulas.js"></script>
+<script src="entidades/projetil.js"></script>
+<script src="entidades/minion.js"></script>
+<script src="interface/entrada.js"></script>
+<script src="core/ia-base.js"></script>
+<script src="core/fx.js"></script>
+<script src="core/recursos.js"></script>
+<script src="classes/espadachim.js"></script>
+<script src="classes/arqueiro.js"></script>
+<script src="classes/mage.js"></script>
+<script src="classes/invocador.js"></script>
+<script src="entidades/lutador.js"></script>
+<script src="entidades/acoes-lutador.js"></script>
+<script src="entidades/estado-lutador.js"></script>
+<script src="entidades/mundo.js"></script>
+<script src="core/config.js"></script>
+<script src="interface/hud.js"></script>
+<script src="interface/painel.js"></script>
+<script src="renderizador.js"></script>
+<script src="simulacao.js"></script>
+<script>
+  const configPanel = document.getElementById('cfgPanel');
+  const configHeading = configPanel.querySelector('.panel-heading');
+  const presetRow = configPanel.querySelector('.preset-row');
+  const configSections = Array.from(configPanel.querySelectorAll(':scope > details.config-section'));
+  const tabDefinitions = [
+    ['geral', 'Geral'], ['lutadores', 'Lutadores'], ['habilidades', 'Habilidades'],
+    ['efeitos', 'Efeitos'], ['camera', 'Câmera'], ['mundo', 'Mundo'],
+    ['recursos', 'Recursos'], ['debug', 'Debug']
+  ];
+  const tabs = document.createElement('nav');
+  tabs.className = 'config-tabs';
+  tabs.setAttribute('aria-label', 'Seções de configuração');
+  configHeading.after(tabs);
+  const tabPanels = {};
+  for (const [id, label] of tabDefinitions) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.tab = id;
+    button.textContent = label;
+    button.setAttribute('role', 'tab');
+    tabs.appendChild(button);
+    const panel = document.createElement('section');
+    panel.id = `config-tab-${id}`;
+    panel.className = 'config-tab-panel';
+    panel.dataset.tabPanel = id;
+    panel.setAttribute('role', 'tabpanel');
+    panel.hidden = true;
+    configPanel.appendChild(panel);
+    tabPanels[id] = panel;
+  }
+  tabPanels.geral.append(presetRow);
+  const arenaSettings = document.createElement('div');
+  arenaSettings.className = 'settings-grid';
+  arenaSettings.innerHTML = '<h3>Partida</h3><p class="section-help">O suporte de múltiplos lutadores será ativado junto da fase de arena.</p><label>Quantidade por time <select disabled aria-label="Quantidade por time (fase de arena)"><option selected>1 lutador</option><option>2 lutadores</option><option>3 lutadores</option><option>4 lutadores</option></select></label><label class="range-line">Tamanho do mapa <output id="mapSizeOutput">100%</output><input type="range" min="80" max="200" step="5" value="100" data-config="mundo.tamanho" data-output="mapSizeOutput" data-suffix="%"></label>';
+  tabPanels.geral.append(arenaSettings);
+  const [fightersSection, abilitySection, effectsSection, cameraSection, worldSection] = configSections;
+  tabPanels.lutadores.append(fightersSection);
+  tabPanels.habilidades.append(abilitySection);
+  tabPanels.efeitos.append(effectsSection);
+  tabPanels.camera.append(cameraSection);
+  tabPanels.mundo.append(worldSection);
+  const resourceSection = document.createElement('section');
+  resourceSection.className = 'resource-settings';
+  resourceSection.innerHTML = '<h3>Escalas de recursos</h3><p class="section-help">Ajusta máximos e regeneração relativos aos valores-base da classe.</p>';
+  for (const [key, label] of [['vida', 'Vida'], ['stamina', 'Stamina'], ['mana', 'Mana'], ['eter', 'Éter']]) {
+    const group = document.createElement('div');
+    group.className = 'resource-group';
+    group.innerHTML = `<h4>${label}</h4><label class="range-line">Máximo <output id="${key}MaxOutput">100%</output><input type="range" min="0" max="300" step="5" value="100" data-config="recursos.${key}.max" data-output="${key}MaxOutput" data-suffix="%"></label><label class="range-line">Regeneração <output id="${key}RegenOutput">100%</output><input type="range" min="0" max="300" step="5" value="100" data-config="recursos.${key}.regen" data-output="${key}RegenOutput" data-suffix="%"></label>`;
+    resourceSection.appendChild(group);
+  }
+  tabPanels.recursos.append(resourceSection);
+  const debugPanel = document.getElementById('debugPanel');
+  const debugSection = debugPanel.querySelector('details');
+  tabPanels.debug.append(debugSection);
+  debugPanel.remove();
+
+  function selectConfigTab(tabId) {
+    for (const button of tabs.querySelectorAll('[data-tab]')) {
+      const active = button.dataset.tab === tabId;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+      button.tabIndex = active ? 0 : -1;
+    }
+    for (const panel of configPanel.querySelectorAll('[data-tab-panel]')) {
+      panel.hidden = panel.dataset.tabPanel !== tabId;
+    }
+    if (window.BattleGame) window.BattleGame.setDebugOpen(tabId === 'debug');
+  }
+  window.openBattleConfigTab = (tabId) => {
+    configPanel.classList.add('open');
+    selectConfigTab(tabId);
+  };
+  tabs.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-tab]');
+    if (button) selectConfigTab(button.dataset.tab);
+  });
+  selectConfigTab('geral');
+
+  const abilityLabels = [
+    ['basic', 'Básico'], ['secondary', 'Secundário'], ['z', 'Z'], ['x', 'X'],
+    ['c', 'C'], ['v', 'V'], ['t', 'T'], ['g', 'G'], ['b', 'B'], ['y', 'Y'],
+    ['h', 'H'], ['dash', 'Dash'], ['parry', 'Parry'], ['shield', 'Escudo'],
+    ['charge', 'Carregar'], ['meditate', 'Meditar']
+  ];
+  for (const [side, targetId] of [['azul', 'blueAbilities'], ['vermelho', 'redAbilities']]) {
+    const grid = document.getElementById(targetId);
+    for (const [key, label] of abilityLabels) {
+      const item = document.createElement('label');
+      item.className = 'ability-state';
+      const name = document.createElement('span');
+      name.textContent = label;
+      const select = document.createElement('select');
+      select.dataset.abilitySide = side;
+      select.dataset.ability = key;
+      select.setAttribute('aria-label', `${label}: estado`);
+      select.innerHTML = '<option value="unlocked">Liberada</option><option value="blocked">Bloqueada</option><option value="hidden">Oculta</option>';
+      item.append(name, select);
+      grid.appendChild(item);
+    }
+  }
+  document.getElementById('cfgToggle').addEventListener('click', () => {
+    const opening = !configPanel.classList.contains('open');
+    configPanel.classList.toggle('open', opening);
+    if (opening) selectConfigTab('geral');
+    else BattleGame.setDebugOpen(false);
+  });
+  document.querySelectorAll('[data-preset]').forEach(button => button.addEventListener('click', () => BattleGame.applyPreset(button.dataset.preset)));
+  document.getElementById('configResetAll').addEventListener('click', () => BattleGame.resetAllConfig());
+  document.getElementById('configExport').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(BattleGame.getConfig(), null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'batalha_config_v2.json';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  });
+  const importButton = document.getElementById('configImportButton');
+  const importFile = document.getElementById('configImportFile');
+  importButton.addEventListener('click', () => importFile.click());
+  importFile.addEventListener('change', async () => {
+    const file = importFile.files[0];
+    if (!file) return;
+    try {
+      BattleGame.importConfig(JSON.parse(await file.text()));
+      importFile.value = '';
+    } catch (error) {
+      console.error('Falha ao importar configuração de batalha.', error);
+      window.alert('Não foi possível importar o JSON. Verifique o arquivo e tente novamente.');
+    }
+  });
+  BattleGame.init({ canvasId: 'game' });
+</script>
+</body>
+</html>
